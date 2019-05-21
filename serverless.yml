@@ -1,15 +1,11 @@
 service: rsvp
-
-frameworkVersion: ">=1.1.0 <2.0.0"
-
+frameworkVersion: '>=1.1.0 <2.0.0'
 provider:
   name: aws
   runtime: nodejs8.10
   memorySize: 128
-
   stage: dev
   region: us-east-1
-
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -17,12 +13,40 @@ provider:
         - dynamodb:Scan
         - dynamodb:GetItem
         - dynamodb:PutItem
-      Resource: "*"
-
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:DeleteItem
+        - dynamodb:PutItem
+        - dynamodb:Scan
+        - dynamodb:Query
+        - dynamodb:UpdateItem
+        - dynamodb:BatchWriteItem
+        - dynamodb:BatchGetItem
+      Resource:
+        - Fn::GetAtt:
+            - GuestsDynamoDbTable
+            - Arn
+        - Fn::Sub: '#{GuestsDynamoDbTable.Arn}/index/*'
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:DeleteItem
+        - dynamodb:PutItem
+        - dynamodb:Scan
+        - dynamodb:Query
+        - dynamodb:UpdateItem
+        - dynamodb:BatchWriteItem
+        - dynamodb:BatchGetItem
+      Resource:
+        - Fn::GetAtt:
+            - ResponsesDynamoDbTable
+            - Arn
+        - Fn::Sub: '#{ResponsesDynamoDbTable.Arn}/index/*'
   environment:
-    GUESTS_TABLE: "${self:service}-guests-${opt:stage, self:provider.stage}"
-    RESPONSES_TABLE: "${self:service}-responses-${opt:stage, self:provider.stage}"
-
+    GUESTS_TABLE: '${self:service}-guests-${opt:stage, self:provider.stage}'
+    RESPONSES_TABLE: '${self:service}-responses-${opt:stage, self:provider.stage}'
 functions:
   submitGuest:
     handler: handler_guest.submitGuest
@@ -32,6 +56,13 @@ functions:
           path: guests
           method: post
           cors: true
+    environment:
+      TABLE_NAME:
+        Ref: GuestsDynamoDbTable
+      TABLE_ARN:
+        Fn::GetAtt:
+          - GuestsDynamoDbTable
+          - Arn
   listGuests:
     handler: handler_guest.listGuests
     description: Lists all guests
@@ -40,18 +71,13 @@ functions:
           path: guests
           method: get
           cors: true
-  # deleteGuest:
-  #   handler: handler_guest.deleteGuest
-  #   description: Removes a guest from guest list
-  #   events:
-  #     - http:
-  #         path: guests/{uuid}
-  #         method: delete
-  #         cors: true
-  #         request:
-  #           parameters:
-  #             paths:
-  #               uuid: true
+    environment:
+      TABLE_NAME:
+        Ref: GuestsDynamoDbTable
+      TABLE_ARN:
+        Fn::GetAtt:
+          - GuestsDynamoDbTable
+          - Arn
   submitResponse:
     handler: handler_response.submitResponse
     description: Submits response
@@ -64,6 +90,13 @@ functions:
           path: responses/decline
           method: post
           cors: true
+    environment:
+      TABLE_NAME:
+        Ref: ResponsesDynamoDbTable
+      TABLE_ARN:
+        Fn::GetAtt:
+          - ResponsesDynamoDbTable
+          - Arn
   listResponses:
     handler: handler_response.listResponses
     description: Lists all responses
@@ -72,32 +105,36 @@ functions:
           path: responses
           method: get
           cors: true
-
+    environment:
+      TABLE_NAME:
+        Ref: ResponsesDynamoDbTable
+      TABLE_ARN:
+        Fn::GetAtt:
+          - ResponsesDynamoDbTable
+          - Arn
 resources:
   Resources:
     GuestsDynamoDbTable:
-      Type: 'AWS::DynamoDB::Table'
+      Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
-          -
-            AttributeName: "id"
-            AttributeType: "S"
+          - AttributeName: id
+            AttributeType: S
         KeySchema:
-          -
-            AttributeName: "id" 
-            KeyType: "HASH" 
+          - AttributeName: id
+            KeyType: HASH
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:provider.environment.GUESTS_TABLE}
     ResponsesDynamoDbTable:
-      Type: 'AWS::DynamoDB::Table'
+      Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
-          -
-            AttributeName: "id"
-            AttributeType: "S"
+          - AttributeName: id
+            AttributeType: S
         KeySchema:
-          -
-            AttributeName: "id"
-            KeyType: "HASH"
+          - AttributeName: id
+            KeyType: HASH
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:provider.environment.RESPONSES_TABLE}
+plugins:
+  - serverless-cf-vars
